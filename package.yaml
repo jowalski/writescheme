@@ -24,6 +24,7 @@ dependencies:
 - parsec
 - array
 - mtl
+- transformers
 
 library:
   source-dirs: src
@@ -51,3 +52,8 @@ tests:
     dependencies:
     - writescheme
     - QuickCheck
+    - tasty
+    - tasty-hunit
+    - tasty-hspec
+    - tasty-quickcheck
+    - tasty-smallcheck

@@ -3,26 +3,32 @@ module Eval where
 import Lisp
 import Error
 import Prims
+import Env
 import Control.Monad.Except
 
-eval :: LispVal -> ThrowsError LispVal
+eval :: Env -> LispVal -> IOThrowsError LispVal
 eval = evalPs []
 
 -- (readExpr "(symbol->string 'abc)") >>= evalPs symbolPrimitives
 evalPs
-  :: [Primitive] -> LispVal -> ThrowsError LispVal
-evalPs _ val@(String _) = return val
-evalPs _ val@(Number _) = return val
-evalPs _ val@(Bool _) = return val
-evalPs _ (List [Atom "quote",val]) = return val
-evalPs ps (List [Atom "if",pred,conseq,alt]) =
-  do result <- (evalPs ps) pred
+  :: [Primitive] -> Env -> LispVal -> IOThrowsError LispVal
+evalPs _ env val@(String _) = return val
+evalPs _ env val@(Number _) = return val
+evalPs _ env val@(Bool _) = return val
+evalPs _ env (Atom id) = getVar env id
+evalPs _ env (List [Atom "quote",val]) = return val
+evalPs ps env (List [Atom "if",pred,conseq,alt]) =
+  do result <- (evalPs ps) env pred
      case result of
-       Bool False -> (evalPs ps) pred
-       otherwise -> (evalPs ps) conseq
-evalPs ps (List (Atom func:args)) =
-  mapM (evalPs ps) args >>= (applyPrims ps) func
-evalPs _ badForm =
+       Bool False -> (evalPs ps) env pred
+       otherwise -> (evalPs ps) env conseq
+evalPs ps env (List [Atom "set!",Atom var,form]) =
+  evalPs ps env form >>= setVar env var
+evalPs ps env (List [Atom "define",Atom var,form]) =
+  evalPs ps env form >>= defineVar env var
+evalPs ps env (List (Atom func:args)) =
+  mapM (evalPs ps env) args >>= liftThrows . (applyPrims ps) func
+evalPs _ env badForm =
   throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 apply

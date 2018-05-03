@@ -5,11 +5,13 @@ module Prims where
 import Error
 import Lisp
 import Control.Monad.Except
+import Data.Char
 
+-- import StrPrims
 type Primitive = (String,[LispVal] -> ThrowsError LispVal)
 
 primitives :: [Primitive]
-primitives = opPrims ++ listPrims ++ eqPrims
+primitives = opPrims ++ listPrims ++ eqPrims ++ stringPrims
 
 numPrims :: (Num a
             ,Integral a)
@@ -33,7 +35,7 @@ bbPrims = [("&&",(&&)),("||",(||))]
 
 sbPrims :: [(String,String -> String -> Bool)]
 sbPrims =
-  [("string=?",(==)),("string?",(>)),("string<=?",(<=)),("string>=?",(>=))]
+  [("string=?",(==)),("string>?",(>)),("string<=?",(<=)),("string>=?",(>=))]
 
 nbPrims :: (Ord a)
         => [(String,a -> a -> Bool)]
@@ -162,3 +164,59 @@ equal [arg1,arg2] =
         let (Bool x) = eqvEquals
         in x)
 equal badArgList = throwError $ NumArgs 2 badArgList
+
+stringPrims :: [Primitive]
+stringPrims =
+  [("string?",isString)
+  ,("make-string",makeString)
+  ,("string",toString)
+  ,("string-length",strLen)
+  ,("string-ref",strRef)] ++
+  strCIPrims
+
+isString :: [LispVal] -> ThrowsError LispVal
+isString [String _] = return $ Bool True
+isString [_] = return $ Bool False
+isString args = throwError $ NumArgs 2 args
+
+makeString :: [LispVal] -> ThrowsError LispVal
+makeString args =
+  case args of
+    [Number len] -> rep len 'X'
+    [Number len,String [c]] -> rep len c
+    val@(_) -> throwError $ NumArgs 2 val
+  where rep i c = return $ String (replicate (fromIntegral i) c)
+
+toString :: [LispVal] -> ThrowsError LispVal
+toString cs = mapM cToStr cs >>= return . String
+  where cToStr :: LispVal -> ThrowsError Char
+        cToStr (String [c]) = return c
+        cToStr val@(_) = throwError $ TypeMismatch "single char string" val
+
+strLen :: [LispVal] -> ThrowsError LispVal
+strLen [String s] = return . Number . fromIntegral . length $ s
+strLen val@(_) = throwError $ NumArgs 1 val
+
+strRef :: [LispVal] -> ThrowsError LispVal
+strRef [String s,Number n] =
+  if fromIntegral n >= length s
+     then throwError $ Default "invalid index"
+     else return . String $ [s !! fromIntegral n]
+strRef val@([_,_]) =
+  throwError $
+  TypeMismatch "string, integer"
+               (List val)
+strRef val@(_) = throwError $ NumArgs 2 val
+
+sbCIPrims :: [(String,String -> String -> Bool)]
+sbCIPrims =
+  [("string-ci=?",(==))
+  ,("string-ci>?",(>))
+  ,("string-ci<?",(<))
+  ,("string-ci<=?",(<=))
+  ,("string-ci>=?",(>=))]
+
+unpackStrCI :: LispVal -> ThrowsError String
+unpackStrCI = liftM (map toUpper) . unpackStr
+
+strCIPrims = map (toPrim (boolBinop unpackStrCI)) sbCIPrims

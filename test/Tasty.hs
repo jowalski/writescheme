@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module ExampleTest where
+module Tasty where
 
 import Data.List
 import Test.Tasty

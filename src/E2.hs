@@ -14,7 +14,7 @@ data LispNumber
   | Real Float
   | Complex (LispNumber,LispNumber)
   | NA
-  deriving ((((Show))))
+  deriving ((((((((Show))))))))
 
 data LispVal
   = Atom String
@@ -25,7 +25,7 @@ data LispVal
   | Character Char
   | String String
   | Bool Bool
-  deriving ((((Show))))
+  | Array (Array Int LispVal)
 
 -- Exercises
 -- 1. Rewrite parseNumber, without liftM,
