@@ -8,6 +8,7 @@ import Test.Tasty.HUnit
 -- import Test.Tasty.Hspec
 -- import Test.Tasty.QuickCheck
 import Prims.Funs
+import Prims
 import ReadEval
 import E5
 

@@ -2,7 +2,6 @@ module ReadEval where
 
 import Read
 import Eval
-import Error (LispError)
 import Prims
 import Lisp
 import Control.Monad (liftM)
@@ -20,7 +19,7 @@ evalStringPs ps env expr =
 evalStringNEnv
   :: [Primitive] -> String -> IO String
 evalStringNEnv ps expr =
-  do nenv <- nullEnv
+  do nenv <- primitiveBindings
      evalStringPs ps nenv expr
 
 -- readEval :: String -> Either LispError String

@@ -1,24 +1,12 @@
 module Env where
 
 import Lisp
-import Error
 import Data.IORef
 import Control.Monad.Trans.Except
 import Control.Monad.Except
 
-type Env = IORef [(String,IORef LispVal)]
-
 nullEnv :: IO Env
 nullEnv = newIORef []
-
-type IOThrowsError = ExceptT LispError IO
-
-liftThrows :: ThrowsError a -> IOThrowsError a
-liftThrows (Left err) = throwError err
-liftThrows (Right val) = return val
-
-runIOThrows :: IOThrowsError String -> IO String
-runIOThrows action = runExceptT (trapError action) >>= return . extractValue
 
 isBound :: Env -> String -> IO Bool
 isBound envRef var =
@@ -59,5 +47,3 @@ bindVars envRef bindings = readIORef envRef >>= extendEnv bindings >>= newIORef
         addBinding (var,value) =
           do ref <- newIORef value
              return (var,ref)
-
-blah = id

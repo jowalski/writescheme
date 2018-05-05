@@ -1,7 +1,6 @@
 module Eval where
 
 import Lisp
-import Error
 import Prims
 import Env
 import Control.Monad.Except
@@ -20,23 +19,58 @@ evalPs _ env (List [Atom "quote",val]) = return val
 evalPs ps env (List [Atom "if",pred,conseq,alt]) =
   do result <- (evalPs ps) env pred
      case result of
-       Bool False -> (evalPs ps) env pred
+       Bool False -> (evalPs ps) env alt
        otherwise -> (evalPs ps) env conseq
 evalPs ps env (List [Atom "set!",Atom var,form]) =
   evalPs ps env form >>= setVar env var
 evalPs ps env (List [Atom "define",Atom var,form]) =
   evalPs ps env form >>= defineVar env var
-evalPs ps env (List (Atom func:args)) =
-  mapM (evalPs ps env) args >>= liftThrows . (applyPrims ps) func
+evalPs _ env (List (Atom "define":List (Atom var:params):body)) =
+  makeNormalFunc env params body >>= defineVar env var
+evalPs _ env (List (Atom "define":DottedList (Atom var:params) varargs:body)) =
+  makeVarargs varargs env params body >>= defineVar env var
+evalPs _ env (List (Atom "lambda":List params:body)) =
+  makeNormalFunc env params body
+evalPs _ env (List (Atom "lambda":DottedList params varargs:body)) =
+  makeVarargs varargs env params body
+evalPs _ env (List (Atom "lambda":varargs@(Atom _):body)) =
+  makeVarargs varargs env [] body
+evalPs ps env (List (func:args)) =
+  do f <- evalPs ps env func
+     argVals <- mapM (evalPs ps env) args
+     applyPrims ps f argVals
 evalPs _ env badForm =
   throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 apply
-  :: String -> [LispVal] -> ThrowsError LispVal
+  :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply = applyPrims []
 
 applyPrims
-  :: [Primitive] -> String -> [LispVal] -> ThrowsError LispVal
-applyPrims ps f args =
-  maybe (throwError $ NotFunction "Unrecognized primitive function args" f) ($ args) $
-  lookup f (ps ++ primitives)
+  :: [Primitive] -> LispVal -> [LispVal] -> IOThrowsError LispVal
+applyPrims ps (PrimitiveFunc f) args = liftThrows $ f args
+applyPrims ps (Func params varargs body closure) args =
+  if num params /= num args && varargs == Nothing
+     then throwError $ NumArgs (num params) args
+     else (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>=
+          evalBody
+  where remainingArgs = drop (length params) args
+        num = toInteger . length
+        evalBody env = liftM last $ mapM ((evalPs ps) env) body
+        bindVarArgs arg env =
+          case arg of
+            Just argName ->
+              liftIO $ bindVars env [(argName,List $ remainingArgs)]
+            Nothing -> return env
+
+makeFunc :: Maybe String
+         -> Env
+         -> [LispVal]
+         -> [LispVal]
+         -> IOThrowsError LispVal
+makeFunc varargs env params body =
+  return $ Func (map showVal params) varargs body env
+
+makeNormalFunc = makeFunc Nothing
+
+makeVarargs = makeFunc . Just . showVal

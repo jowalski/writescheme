@@ -2,7 +2,6 @@ module E5 where
 
 import Prims
 import Lisp
-import Error
 import Eval (evalPs, eval)
 import Control.Monad
 import Control.Monad.Except

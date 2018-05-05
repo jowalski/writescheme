@@ -2,7 +2,6 @@ module E3 where
 
 import Lisp
 import Eval
-import Error
 import Read
 import Prims
 import Control.Monad.Except

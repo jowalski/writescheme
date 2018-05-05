@@ -2,7 +2,6 @@
 
 module Prims where
 
-import Error
 import Lisp
 import Control.Monad.Except
 import Data.Char
